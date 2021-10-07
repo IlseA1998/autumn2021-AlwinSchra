@@ -1,8 +1,8 @@
 ---
 title: "Assigment - Naive Bayes DIY"
 author:
-  - name author here - Author
-  - name reviewer here - Reviewer
+  - name author here - Alwin Schra
+  - name reviewer here - Ilse Akkerman
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
    html_notebook:
@@ -11,30 +11,150 @@ output:
 ---
 
 ```{r}
+#install.packages("tidyverse")
+#install.packages("tm")
+#install.packages("caret")
+#install.packages("wordcloud")
+#install.packages("e1071")
+#install.packages("readr")
+#install.packages("utils")
+#install.packages("RColorBrewer")
+#install.packages("magrittr")
+#install.packages("base")
+#install.packages("textclean")
 library(tidyverse)
 library(tm)
 library(caret)
 library(wordcloud)
 library(e1071)
+library(readr)
+library(utils)
+library(RColorBrewer)
+library(magrittr)
+library(base)
+library(textclean)
+
 ```
----
-
-Choose a suitable dataset from [this](https://github.com/HAN-M3DM-Data-Mining/assignments/tree/master/datasets) folder and train your own Naive Bayes model. Follow all the steps from the CRISP-DM model.
 
 
-## Business Understanding
-text and code here
+```{r}
 
-## Data Understanding
-text and code here
+url <- "https://raw.githubusercontent.com/HAN-M3DM-Data-Mining/assignments/master/datasets/NB-fakenews.csv"
+rawDF <- read_csv(url)
 
-## Data Preparation
-text and code here
+head(rawDF)
 
-## Modeling
-text and code here
+```
 
-## Evaluation and Deployment
-text and code here
+Because the file is so large (20800 entries with 5 columns), I'll remove a few columns from it because otherwise it takes too long to load, especially later on in this assignment. 
 
-reviewer adds suggestions for improving the model
+```{r}
+rawDF <- rawDF[c(-1,-3)] %>% na.omit
+head(rawDF)
+```
+
+Convert to factor and create two different datasets divided on the basis of the two labels. 
+
+```{r}
+rawDF$label <- rawDF$label %>% factor %>% relevel("1")
+class(rawDF$label)
+
+rawDF$label <- rawDF$label %>% factor %>% relevel("0")
+class(rawDF$label) 
+
+Fake <- rawDF %>% filter(label == "1")
+NFake <- rawDF %>% filter(label == "0")
+```
+
+Below is a wordcloud line to check common words named in the two resulting datasets. 
+
+```{r}
+wordcloud(Fake$text, max.words = 20, scale = c(4, 0.8), colors= c("indianred1","indianred2","indianred3","indianred"))
+wordcloud(NFake$text, max.words = 20, scale = c(4, 0.8), colors= c("lightsteelblue1","lightsteelblue2","lightsteelblue3","lightsteelblue"))
+```
+
+Now a corpus is created, in which some parts of the file are taken out or changed. 
+
+```{r}
+rawCorpus <- Corpus(VectorSource(rawDF$title))
+inspect(rawCorpus[1:3])
+
+cleanCorpus <- rawCorpus %>% tm_map(tolower) %>% tm_map(removeNumbers)
+cleanCorpus <- cleanCorpus %>% tm_map(tolower) %>% tm_map(removeWords, stopwords()) %>% tm_map(removePunctuation)
+cleanCorpus <- cleanCorpus %>% tm_map(stripWhitespace)
+```
+
+Data check
+
+```{r}
+tibble(Raw = rawCorpus$content[1:3], Clean = cleanCorpus$content[1:3])
+```
+
+Transforming the data to a matrix. Every word has a column. 
+
+```{r}
+cleanDTM <- cleanCorpus %>% DocumentTermMatrix
+inspect(cleanDTM)
+```
+
+```{r}
+Create split indices
+set.seed(1234)
+trainIndex <- createDataPartition(rawDF$label, p = 0.75, 
+                                  list = FALSE,
+                                  times = 1)
+
+head(trainIndex)
+```
+
+Creating train and test sets
+
+```{r}
+trainDF <- rawDF[trainIndex, ]
+testDF <- rawDF[-trainIndex, ]
+
+trainCorpus <- cleanCorpus[trainIndex]
+testCorpus <- cleanCorpus[-trainIndex]
+
+trainDTM <- cleanDTM[trainIndex, ]
+testDTM <- cleanDTM[-trainIndex, ]
+```
+
+To prevent the dataset from becoming too large, I have put a 100 in the next line. In this case, this means that only words that occur 100 times or more are included. 
+
+```{r}
+freqWords <- trainDTM %>% findFreqTerms(100)
+trainDTM <-  DocumentTermMatrix(trainCorpus, list(dictionary = freqWords))
+testDTM <-  DocumentTermMatrix(testCorpus, list(dictionary = freqWords))  
+```
+
+```{r}
+convert_counts <- function(x) {
+  x <- ifelse(x > 0, 1, 0) %>% factor(levels = c(0,1), labels = c("No", "Yes"))
+}
+
+nColsDTM <- dim(trainDTM)[2]
+trainDTM <- apply(trainDTM, MARGIN = 2, convert_counts)
+testDTM <- apply(testDTM, MARGIN = 2, convert_counts)
+
+head(trainDTM[,1:10]) 
+```
+
+Train the model
+
+```{r}
+nbayesModel <-  naiveBayes(trainDTM, trainDF$label, laplace = 1)
+```
+
+The final Confusion Matrix
+
+```{r}
+predVec <- predict(nbayesModel, testDTM)
+confusionMatrix(predVec, testDF$label, positive = "1", dnn = c("Prediction", "True"))
+``` 
+
+Currently it has an accuracy of 89,8%, which is not that bad. But it's not completely reliable.  
+
+
+
+#reviewer adds suggestions for improving the model
