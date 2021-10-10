@@ -158,3 +158,31 @@ Currently it has an accuracy of 89,8%, which is not that bad. But it's not compl
 
 
 #reviewer adds suggestions for improving the model
+
+We fixed some problems together so i know how the code is build. Therefore i don's see any mistakes right now, but what can be done is editing the "freqWords <- trainDTM %>% findFreqTerms(100)" to "freqWords <- trainDTM %>% findFreqTerms(10)". This makes the confusionMatrix more accurate (92,19% compared to the 89,8%) and it is still doable for the time needed. The change of that gives me the following results:
+Confusion Matrix and Statistics
+
+          True
+Prediction    0    1
+         0 2282   92
+         1  314 2511
+                                          
+               Accuracy : 0.9219          
+                 95% CI : (0.9143, 0.9291)
+    No Information Rate : 0.5007          
+    P-Value [Acc > NIR] : < 2.2e-16       
+                                          
+                  Kappa : 0.8438          
+                                          
+ Mcnemar's Test P-Value : < 2.2e-16       
+                                          
+            Sensitivity : 0.9647          
+            Specificity : 0.8790          
+         Pos Pred Value : 0.8888          
+         Neg Pred Value : 0.9612          
+             Prevalence : 0.5007          
+         Detection Rate : 0.4830          
+   Detection Prevalence : 0.5434          
+      Balanced Accuracy : 0.9219          
+                                          
+       'Positive' Class : 1          
